@@ -33,8 +33,12 @@ function App() {
     });
 
     const data = await res.json();
-    if (data) setUser({ username });
-    else alert("Wrong credentials");
+    if (data) {
+      setUser({ username });
+      setRoom(""); // 🔥 fix
+    } else {
+      alert("Wrong credentials");
+    }
   };
 
   // 🔐 REGISTER
@@ -51,25 +55,28 @@ function App() {
 
   // 🔥 JOIN ROOM
   const joinRoom = () => {
-    if (room !== "") {
+    if (room.trim() !== "") {
       socket.emit("join_room", { room, username });
-      socket.emit("join", username); // online users ke liye
+      socket.emit("join", username);
       setShowChat(true);
+    } else {
+      alert("Enter room id");
     }
   };
 
   // 📸 IMAGE
   const handleImage = (e) => {
     const file = e.target.files[0];
-    const reader = new FileReader();
+    if (!file) return;
 
+    const reader = new FileReader();
     reader.onloadend = () => setImage(reader.result);
-    if (file) reader.readAsDataURL(file);
+    reader.readAsDataURL(file);
   };
 
   // 💬 SEND
   const sendMessage = () => {
-    if (message !== "" || image !== "") {
+    if (message.trim() !== "" || image !== "") {
       const data = {
         room,
         author: username,
@@ -79,6 +86,7 @@ function App() {
       };
 
       socket.emit("send_message", data);
+
       setMessage("");
       setImage("");
     }
@@ -87,9 +95,12 @@ function App() {
   // ⌨️ TYPING
   const handleTyping = (e) => {
     setMessage(e.target.value);
+
     socket.emit("typing", { room, username });
 
-    setTimeout(() => socket.emit("stop_typing", { room }), 1000);
+    setTimeout(() => {
+      socket.emit("stop_typing", { room });
+    }, 1000);
   };
 
   // 🔁 SOCKET LISTEN
@@ -98,15 +109,20 @@ function App() {
       setMessages((list) => [...list, data]);
     });
 
-    socket.on("typing", (data) =>
-      setTyping(data.username + " typing...")
-    );
+    socket.on("typing", (data) => {
+      setTyping(data.username + " typing...");
+    });
 
     socket.on("stop_typing", () => setTyping(""));
 
     socket.on("online_users", setOnlineUsers);
 
-    return () => socket.off();
+    return () => {
+      socket.off("receive_message");
+      socket.off("typing");
+      socket.off("stop_typing");
+      socket.off("online_users");
+    };
   }, []);
 
   // 🔽 AUTO SCROLL
@@ -121,14 +137,22 @@ function App() {
         <div className="box">
           <h2>{isRegister ? "Register" : "Login"}</h2>
 
-          <input placeholder="Username" onChange={(e)=>setUsername(e.target.value)} />
-          <input placeholder="Password" onChange={(e)=>setPassword(e.target.value)} />
+          <input
+            placeholder="Username"
+            onChange={(e) => setUsername(e.target.value)}
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
           <button onClick={isRegister ? register : login}>
             {isRegister ? "Register" : "Login"}
           </button>
 
-          <p onClick={()=>setIsRegister(!isRegister)}>
+          <p onClick={() => setIsRegister(!isRegister)}>
             {isRegister ? "Login here" : "Create account"}
           </p>
         </div>
@@ -136,13 +160,19 @@ function App() {
     );
   }
 
-  // 🟡 JOIN UI
+  // 🟡 JOIN ROOM UI
   if (!showChat) {
     return (
       <div className="auth">
         <div className="box">
           <h2>Join Room</h2>
-          <input placeholder="Room ID" onChange={(e)=>setRoom(e.target.value)} />
+
+          <input
+            placeholder="Enter Room (e.g. 123)"
+            value={room}
+            onChange={(e) => setRoom(e.target.value)}
+          />
+
           <button onClick={joinRoom}>Join</button>
         </div>
       </div>
@@ -173,8 +203,12 @@ function App() {
           {messages.map((msg, i) => (
             <div key={i} className={msg.author === username ? "own" : "msg"}>
               <b>{msg.author}</b>
+
               {msg.message && <p>{msg.message}</p>}
-              {msg.image && <img src={msg.image} width="120" alt="" />}
+
+              {msg.image && (
+                <img src={msg.image} width="120" alt="" />
+              )}
             </div>
           ))}
           <div ref={bottomRef}></div>
@@ -183,7 +217,11 @@ function App() {
         <div className="typing">{typing}</div>
 
         <div className="footer">
-          <input value={message} onChange={handleTyping} placeholder="Type..." />
+          <input
+            value={message}
+            onChange={handleTyping}
+            placeholder="Type..."
+          />
           <input type="file" onChange={handleImage} />
           <button onClick={sendMessage}>Send</button>
         </div>
