@@ -1,115 +1,17 @@
-body {
-  background: #ece5dd;
-  font-family: Arial;
-  margin: 0;
-}
+body { background:#ece5dd; font-family:Arial; }
 
-/* LOGIN / REGISTER */
-.auth {
-  text-align: center;
-  margin-top: 100px;
-}
+.auth, .join { text-align:center; margin-top:100px; }
 
-.auth input {
-  display: block;
-  margin: 10px auto;
-  padding: 8px;
-  width: 200px;
-}
+.chat { width:400px; margin:auto; background:white; }
 
-.auth button {
-  padding: 8px 20px;
-  background: #25d366;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
+.header { background:#075e54; color:white; padding:10px; }
 
-/* USER LIST */
-.join {
-  width: 300px;
-  margin: 50px auto;
-  background: white;
-  padding: 10px;
-  border-radius: 10px;
-}
+.body { height:400px; overflow:auto; padding:10px; }
 
-.join h3 {
-  text-align: center;
-}
+.msg { background:#fff; margin:5px; padding:8px; border-radius:10px; }
 
-.join div {
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
-  cursor: pointer;
-}
+.own { background:#dcf8c6; margin:5px; padding:8px; border-radius:10px; text-align:right; }
 
-.join div:hover {
-  background: #f1f1f1;
-}
+.footer { display:flex; gap:5px; }
 
-/* CHAT UI */
-.chat {
-  width: 400px;
-  margin: auto;
-  background: white;
-  display: flex;
-  flex-direction: column;
-  height: 500px;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-/* HEADER */
-.header {
-  background: #075e54;
-  color: white;
-  padding: 10px;
-  font-weight: bold;
-}
-
-/* BODY */
-.body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-}
-
-/* MESSAGES */
-.msg {
-  background: white;
-  margin: 5px;
-  padding: 8px;
-  border-radius: 10px;
-  max-width: 70%;
-}
-
-.own {
-  background: #dcf8c6;
-  margin: 5px;
-  padding: 8px;
-  border-radius: 10px;
-  max-width: 70%;
-  margin-left: auto;
-  text-align: right;
-}
-
-/* FOOTER */
-.footer {
-  display: flex;
-  padding: 10px;
-  gap: 5px;
-}
-
-.footer input {
-  flex: 1;
-  padding: 8px;
-}
-
-.footer button {
-  padding: 8px 15px;
-  background: #25d366;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
+.typing { font-size:12px; color:gray; }

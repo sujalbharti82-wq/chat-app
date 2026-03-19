@@ -2,7 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import "./App.css";
 
+// ✅ FINAL FIX (API URL)
 const API = "https://chat-app-370t.onrender.com";
+
+// ✅ SOCKET FIX
 const socket = io(API);
 
 function App() {
@@ -13,44 +16,36 @@ function App() {
   const [password, setPassword] = useState("");
   const [avatar, setAvatar] = useState("");
 
-  const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-
   const [room, setRoom] = useState("");
   const [showChat, setShowChat] = useState(false);
 
   const [message, setMessage] = useState("");
+  const [image, setImage] = useState("");
   const [messageList, setMessageList] = useState([]);
+
+  const [typingUser, setTypingUser] = useState("");
+  const [onlineUsers, setOnlineUsers] = useState([]);
 
   const bottomRef = useRef(null);
 
-  const createRoom = (u1, u2) => {
-    return [u1, u2].sort().join("_");
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetch(`${API}/users`)
-        .then(res => res.json())
-        .then(data => setUsers(data));
-    }
-  }, [user]);
-
+  // 🔥 REGISTER
   const register = async () => {
     await fetch(`${API}/register`, {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ username, password, avatar })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, avatar }),
     });
+
     alert("Registered! Login karo");
     setIsRegister(false);
   };
 
+  // 🔥 LOGIN
   const login = async () => {
     const res = await fetch(`${API}/login`, {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ username, password })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
     });
 
     const data = await res.json();
@@ -58,29 +53,48 @@ function App() {
     else alert("Wrong credentials");
   };
 
-  const startChat = (otherUser) => {
-    const roomId = createRoom(user.username, otherUser.username);
-
-    setRoom(roomId);
-    setSelectedUser(otherUser);
-
-    socket.emit("join_room", { room: roomId });
-
+  const joinRoom = () => {
+    socket.emit("join_room", {
+      room,
+      username: user.username,
+      avatar: user.avatar,
+    });
     setShowChat(true);
   };
 
   const sendMessage = () => {
-    if (message !== "") {
+    if (message !== "" || image !== "") {
       const data = {
         room,
         author: user.username,
+        avatar: user.avatar,
         message,
+        image,
         time: new Date().toLocaleTimeString(),
       };
 
       socket.emit("send_message", data);
       setMessage("");
+      setImage("");
+      socket.emit("stop_typing", { room });
     }
+  };
+
+  const handleImage = (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+
+    reader.onloadend = () => setImage(reader.result);
+    if (file) reader.readAsDataURL(file);
+  };
+
+  const handleTyping = (e) => {
+    setMessage(e.target.value);
+    socket.emit("typing", { room, username: user.username });
+
+    setTimeout(() => {
+      socket.emit("stop_typing", { room });
+    }, 1000);
   };
 
   useEffect(() => {
@@ -88,33 +102,50 @@ function App() {
 
     socket.on("receive_message", (data) => {
       setMessageList((list) => [...list, data]);
+      socket.emit("message_seen", { room });
     });
 
+    socket.on("message_seen", () => {
+      setMessageList((list) =>
+        list.map((msg) =>
+          msg.author === user?.username ? { ...msg, status: "seen" } : msg
+        )
+      );
+    });
+
+    socket.on("typing", (user) => setTypingUser(user + " is typing..."));
+    socket.on("stop_typing", () => setTypingUser(""));
+    socket.on("online_users", setOnlineUsers);
+
     return () => socket.off();
-  }, []);
+  }, [room, user]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messageList]);
+
+  // 🔥 UI
 
   if (!user) {
     return (
       <div className="auth">
         <h2>{isRegister ? "Register" : "Login"}</h2>
 
-        <input placeholder="Username" onChange={(e)=>setUsername(e.target.value)} />
-        <input placeholder="Password" onChange={(e)=>setPassword(e.target.value)} />
+        <input placeholder="Username" onChange={(e) => setUsername(e.target.value)} />
+        <input placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
 
         {isRegister && (
-          <input placeholder="Avatar URL"
-            onChange={(e)=>setAvatar(e.target.value)} />
+          <input
+            placeholder="Avatar URL"
+            onChange={(e) => setAvatar(e.target.value)}
+          />
         )}
 
         <button onClick={isRegister ? register : login}>
           {isRegister ? "Register" : "Login"}
         </button>
 
-        <p onClick={()=>setIsRegister(!isRegister)}>
+        <p onClick={() => setIsRegister(!isRegister)}>
           {isRegister ? "Login here" : "Create account"}
         </p>
       </div>
@@ -124,15 +155,8 @@ function App() {
   if (!showChat) {
     return (
       <div className="join">
-        <h3>Select User</h3>
-
-        {users
-          .filter(u => u.username !== user.username)
-          .map(u => (
-            <div key={u._id} onClick={() => startChat(u)}>
-              {u.username}
-            </div>
-          ))}
+        <input placeholder="Room" onChange={(e) => setRoom(e.target.value)} />
+        <button onClick={joinRoom}>Join</button>
       </div>
     );
   }
@@ -140,26 +164,36 @@ function App() {
   return (
     <div className="chat">
       <div className="header">
-        Chat with: {selectedUser?.username}
+        {room} | {user.username}
+        <div>👥 {onlineUsers.map((u) => u.username).join(", ")}</div>
       </div>
 
       <div className="body">
         {messageList.map((msg, i) => (
-          <div key={i}
-            className={msg.author === user.username ? "own" : "msg"}>
-            <p>{msg.message}</p>
-            <span>{msg.time}</span>
+          <div key={i} className={msg.author === user.username ? "own" : "msg"}>
+            <img src={msg.avatar} width="30" alt="" />
+            {msg.message && <p>{msg.message}</p>}
+            {msg.image && <img src={msg.image} width="120" alt="" />}
+
+            <span>
+              {msg.time}
+              {msg.author === user.username &&
+                (msg.status === "seen" ? " ✔✔" : " ✔")}
+            </span>
           </div>
         ))}
         <div ref={bottomRef}></div>
       </div>
 
+      <div className="typing">{typingUser}</div>
+
       <div className="footer">
         <input
           value={message}
-          onChange={(e)=>setMessage(e.target.value)}
+          onChange={handleTyping}
           placeholder="Type..."
         />
+        <input type="file" onChange={handleImage} />
         <button onClick={sendMessage}>Send</button>
       </div>
     </div>
