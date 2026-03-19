@@ -8,17 +8,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ TEST ROUTE
+// ✅ Test route (important)
 app.get("/", (req, res) => {
   res.send("API Running 🚀");
 });
 
-// 🔥 MONGODB CONNECT
+// 🔥 MongoDB Atlas
 mongoose.connect("mongodb+srv://sujalbharti82_db_user:sujal1725@cluster0.ptkvdkk.mongodb.net/chatapp")
 .then(() => console.log("MongoDB Connected"))
 .catch(err => console.log(err));
 
-// 🔥 USER SCHEMA
+// 🔥 USER schema
 const UserSchema = new mongoose.Schema({
   username: String,
   password: String,
@@ -26,7 +26,7 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model("User", UserSchema);
 
-// 🔥 MESSAGE SCHEMA
+// 🔥 MESSAGE schema
 const MessageSchema = new mongoose.Schema({
   room: String,
   author: String,
@@ -38,46 +38,20 @@ const MessageSchema = new mongoose.Schema({
 });
 const Message = mongoose.model("Message", MessageSchema);
 
-// ======================
-// ✅ AUTH APIs
-// ======================
+// 🔥 AUTH APIs
 
-// REGISTER
 app.post("/register", async (req, res) => {
   const { username, password, avatar } = req.body;
-
-  const existing = await User.findOne({ username });
-  if (existing) {
-    return res.json({ success: false, message: "User already exists" });
-  }
-
   const user = new User({ username, password, avatar });
   await user.save();
-
   res.json({ success: true });
 });
 
-// LOGIN
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-
   const user = await User.findOne({ username, password });
   res.json(user || null);
 });
-
-// ✅🔥 GET ALL USERS (IMPORTANT FIX)
-app.get("/users", async (req, res) => {
-  try {
-    const users = await User.find();
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================
-// SOCKET.IO
-// ======================
 
 const server = http.createServer(app);
 
@@ -93,11 +67,7 @@ io.on("connection", (socket) => {
     socket.join(room);
 
     if (!roomUsers[room]) roomUsers[room] = [];
-
-    // duplicate avoid
-    if (!roomUsers[room].some(u => u.username === username)) {
-      roomUsers[room].push({ username, avatar });
-    }
+    roomUsers[room].push({ username, avatar });
 
     const messages = await Message.find({ room });
     socket.emit("load_messages", messages);
@@ -134,7 +104,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {});
 });
 
-// ✅ PORT FIX (RENDER)
+// ✅ IMPORTANT (Render fix)
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
