@@ -2,7 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import "./App.css";
 
-const socket = io("http://localhost:5000");
+// ✅ FINAL FIX (API URL)
+const API = "https://chat-app-370t.onrender.com";
+
+// ✅ SOCKET FIX
+const socket = io(API);
 
 function App() {
   const [user, setUser] = useState(null);
@@ -24,24 +28,24 @@ function App() {
 
   const bottomRef = useRef(null);
 
-  // 🔥 register
+  // 🔥 REGISTER
   const register = async () => {
-    await fetch("http://localhost:5000/register", {
+    await fetch(`${API}/register`, {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ username, password, avatar })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, avatar }),
     });
 
     alert("Registered! Login karo");
     setIsRegister(false);
   };
 
-  // 🔥 login
+  // 🔥 LOGIN
   const login = async () => {
-    const res = await fetch("http://localhost:5000/login", {
+    const res = await fetch(`${API}/login`, {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ username, password })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
     });
 
     const data = await res.json();
@@ -53,7 +57,7 @@ function App() {
     socket.emit("join_room", {
       room,
       username: user.username,
-      avatar: user.avatar
+      avatar: user.avatar,
     });
     setShowChat(true);
   };
@@ -127,19 +131,21 @@ function App() {
       <div className="auth">
         <h2>{isRegister ? "Register" : "Login"}</h2>
 
-        <input placeholder="Username" onChange={(e)=>setUsername(e.target.value)} />
-        <input placeholder="Password" onChange={(e)=>setPassword(e.target.value)} />
+        <input placeholder="Username" onChange={(e) => setUsername(e.target.value)} />
+        <input placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
 
         {isRegister && (
-          <input placeholder="Avatar URL"
-            onChange={(e)=>setAvatar(e.target.value)} />
+          <input
+            placeholder="Avatar URL"
+            onChange={(e) => setAvatar(e.target.value)}
+          />
         )}
 
         <button onClick={isRegister ? register : login}>
           {isRegister ? "Register" : "Login"}
         </button>
 
-        <p onClick={()=>setIsRegister(!isRegister)}>
+        <p onClick={() => setIsRegister(!isRegister)}>
           {isRegister ? "Login here" : "Create account"}
         </p>
       </div>
@@ -149,8 +155,7 @@ function App() {
   if (!showChat) {
     return (
       <div className="join">
-        <input placeholder="Room"
-          onChange={(e)=>setRoom(e.target.value)} />
+        <input placeholder="Room" onChange={(e) => setRoom(e.target.value)} />
         <button onClick={joinRoom}>Join</button>
       </div>
     );
@@ -158,27 +163,23 @@ function App() {
 
   return (
     <div className="chat">
-
       <div className="header">
         {room} | {user.username}
-        <div>👥 {onlineUsers.map(u=>u.username).join(", ")}</div>
+        <div>👥 {onlineUsers.map((u) => u.username).join(", ")}</div>
       </div>
 
       <div className="body">
-        {messageList.map((msg,i)=>(
-          <div key={i}
-            className={msg.author===user.username?"own":"msg"}>
-
+        {messageList.map((msg, i) => (
+          <div key={i} className={msg.author === user.username ? "own" : "msg"}>
             <img src={msg.avatar} width="30" alt="" />
             {msg.message && <p>{msg.message}</p>}
             {msg.image && <img src={msg.image} width="120" alt="" />}
 
             <span>
               {msg.time}
-              {msg.author===user.username &&
-                (msg.status==="seen"?" ✔✔":" ✔")}
+              {msg.author === user.username &&
+                (msg.status === "seen" ? " ✔✔" : " ✔")}
             </span>
-
           </div>
         ))}
         <div ref={bottomRef}></div>
@@ -187,13 +188,14 @@ function App() {
       <div className="typing">{typingUser}</div>
 
       <div className="footer">
-        <input value={message}
+        <input
+          value={message}
           onChange={handleTyping}
-          placeholder="Type..." />
+          placeholder="Type..."
+        />
         <input type="file" onChange={handleImage} />
         <button onClick={sendMessage}>Send</button>
       </div>
-
     </div>
   );
 }
