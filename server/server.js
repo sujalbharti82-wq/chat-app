@@ -8,6 +8,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ✅ Test route (important)
+app.get("/", (req, res) => {
+  res.send("API Running 🚀");
+});
+
 // 🔥 MongoDB Atlas
 mongoose.connect("mongodb+srv://sujalbharti82_db_user:sujal1725@cluster0.ptkvdkk.mongodb.net/chatapp")
 .then(() => console.log("MongoDB Connected"))
@@ -99,6 +104,9 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {});
 });
 
-server.listen(5000, () => {
-  console.log("Server running on port 5000");
+// ✅ IMPORTANT (Render fix)
+const PORT = process.env.PORT || 5000;
+
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
