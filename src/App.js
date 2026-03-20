@@ -22,7 +22,7 @@ function App() {
 
   const bottomRef = useRef(null);
 
-  // LOGIN
+  // 🔐 LOGIN
   const login = async () => {
     const res = await fetch(`${API}/login`, {
       method: "POST",
@@ -33,12 +33,17 @@ function App() {
     const data = await res.json();
     if (data) {
       setUser({ username });
+
+      // ✅ RESET (FIX ISSUE)
+      setUsername("");
+      setPassword("");
+      setRoom("");
     } else {
       alert("Wrong credentials");
     }
   };
 
-  // REGISTER
+  // 📝 REGISTER
   const register = async () => {
     await fetch(`${API}/register`, {
       method: "POST",
@@ -50,27 +55,53 @@ function App() {
     setIsRegister(false);
   };
 
-  // JOIN
+  // 🚪 JOIN ROOM
   const joinRoom = () => {
     if (!room) return alert("Enter room");
 
-    socket.emit("join_room", { room, username });
+    socket.emit("join_room", {
+      room,
+      username: user?.username,
+    });
+
     setShowChat(true);
   };
 
-  // SEND
+  // 💬 SEND MESSAGE
   const sendMessage = () => {
     if (!message) return;
 
-    const data = {
+    socket.emit("send_message", {
       room,
-      author: username,
+      author: user?.username,
       message,
       time: new Date().toLocaleTimeString(),
-    };
+    });
 
-    socket.emit("send_message", data);
     setMessage("");
+  };
+
+  // 🖼 IMAGE UPLOAD
+  const sendImage = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${API}/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    socket.emit("send_message", {
+      room,
+      author: user?.username,
+      image: data.url,
+      time: new Date().toLocaleTimeString(),
+    });
   };
 
   // 🧹 CLEAR CHAT
@@ -85,6 +116,7 @@ function App() {
     setShowChat(false);
     setMessages([]);
     setOnlineUsers([]);
+    setRoom("");
   };
 
   useEffect(() => {
@@ -98,24 +130,34 @@ function App() {
 
     socket.on("online_users", setOnlineUsers);
 
-    return () => {
-      socket.off();
-    };
+    return () => socket.off();
   }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // LOGIN UI
+  // 🔐 LOGIN UI
   if (!user) {
     return (
       <div className="auth">
         <div className="box">
           <h2>{isRegister ? "Register" : "Login"}</h2>
 
-          <input placeholder="Username" onChange={(e) => setUsername(e.target.value)} />
-          <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
+          <input
+            placeholder="Username"
+            value={username}
+            autoComplete="off"
+            onChange={(e) => setUsername(e.target.value)}
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            autoComplete="off"
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
           <button onClick={isRegister ? register : login}>
             {isRegister ? "Register" : "Login"}
@@ -129,19 +171,27 @@ function App() {
     );
   }
 
-  // JOIN UI
+  // 🚪 JOIN ROOM UI
   if (!showChat) {
     return (
       <div className="auth">
         <div className="box">
           <h2>Join Room</h2>
-          <input value={room} onChange={(e) => setRoom(e.target.value)} />
+
+          <input
+            placeholder="Enter Room ID"
+            value={room}
+            autoComplete="off"
+            onChange={(e) => setRoom(e.target.value)}
+          />
+
           <button onClick={joinRoom}>Join</button>
         </div>
       </div>
     );
   }
 
+  // 💬 CHAT UI
   return (
     <div className="container">
 
@@ -155,23 +205,37 @@ function App() {
       <div className="chat">
 
         <div className="header">
-          Room: {room} | You: {username}
+          Room: {room} | You: {user?.username}
           <button onClick={logout}>Logout</button>
           <button onClick={clearChat}>Clear</button>
         </div>
 
         <div className="body">
           {messages.map((msg, i) => (
-            <div key={i} className={msg.author === username ? "own" : "msg"}>
+            <div key={i} className={msg.author === user?.username ? "own" : "msg"}>
+              
               <b>{msg.author}</b>
-              <p>{msg.message}</p>
+
+              {msg.message && <p>{msg.message}</p>}
+
+              {msg.image && (
+                <img src={msg.image} alt="" style={{ width: "150px" }} />
+              )}
+
             </div>
           ))}
           <div ref={bottomRef}></div>
         </div>
 
         <div className="footer">
-          <input value={message} onChange={(e) => setMessage(e.target.value)} />
+          <input
+            placeholder="Type message..."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+
+          <input type="file" onChange={sendImage} />
+
           <button onClick={sendMessage}>Send</button>
         </div>
 
