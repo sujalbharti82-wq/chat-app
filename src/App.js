@@ -3,7 +3,11 @@ import io from "socket.io-client";
 import "./App.css";
 
 const API = "https://chat-app-370t.onrender.com";
-const socket = io(API);
+
+// ✅ SOCKET FIX
+const socket = io(API, {
+  transports: ["websocket"],
+});
 
 function App() {
   const [user, setUser] = useState(null);
@@ -35,7 +39,7 @@ function App() {
     const data = await res.json();
     if (data) {
       setUser({ username });
-      setRoom(""); // 🔥 fix
+      setRoom("");
     } else {
       alert("Wrong credentials");
     }
@@ -57,7 +61,6 @@ function App() {
   const joinRoom = () => {
     if (room.trim() !== "") {
       socket.emit("join_room", { room, username });
-      socket.emit("join", username);
       setShowChat(true);
     } else {
       alert("Enter room id");
@@ -82,7 +85,10 @@ function App() {
         author: username,
         message,
         image,
-        time: new Date().toLocaleTimeString(),
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
 
       socket.emit("send_message", data);
@@ -90,6 +96,20 @@ function App() {
       setMessage("");
       setImage("");
     }
+  };
+
+  // ✅ 🔥 LOGOUT FIX (MAIN)
+  const logout = () => {
+    socket.emit("leave_room");   // ✅ without username
+    socket.disconnect();         // 🔥 must
+    setUser(null);
+    setRoom("");
+    setShowChat(false);
+  };
+
+  // ✅ 🔥 CLEAR CHAT FIX
+  const clearChat = () => {
+    socket.emit("clear_chat", room);
   };
 
   // ⌨️ TYPING
@@ -117,11 +137,16 @@ function App() {
 
     socket.on("online_users", setOnlineUsers);
 
+    socket.on("load_messages", (msgs) => {
+      setMessages(msgs);
+    });
+
     return () => {
       socket.off("receive_message");
       socket.off("typing");
       socket.off("stop_typing");
       socket.off("online_users");
+      socket.off("load_messages");
     };
   }, []);
 
@@ -137,16 +162,8 @@ function App() {
         <div className="box">
           <h2>{isRegister ? "Register" : "Login"}</h2>
 
-          <input
-            placeholder="Username"
-            onChange={(e) => setUsername(e.target.value)}
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <input placeholder="Username" onChange={(e) => setUsername(e.target.value)} />
+          <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
 
           <button onClick={isRegister ? register : login}>
             {isRegister ? "Register" : "Login"}
@@ -168,7 +185,7 @@ function App() {
           <h2>Join Room</h2>
 
           <input
-            placeholder="Enter Room (e.g. 123)"
+            placeholder="Enter Room"
             value={room}
             onChange={(e) => setRoom(e.target.value)}
           />
@@ -186,17 +203,22 @@ function App() {
       {/* SIDEBAR */}
       <div className="sidebar">
         <h3>Online</h3>
-        {onlineUsers.map((u, i) => (
+
+        {[...new Map(onlineUsers.map(u => [u.username, u])).values()].map((u, i) => (
           <div key={i} className="userItem">
             🟢 {u.username}
           </div>
         ))}
+
       </div>
 
       {/* CHAT */}
       <div className="chat">
         <div className="header">
           Room: {room} | You: {username}
+
+          <button onClick={logout}>Logout</button>
+          <button onClick={clearChat}>Clear</button>
         </div>
 
         <div className="body">
@@ -206,9 +228,9 @@ function App() {
 
               {msg.message && <p>{msg.message}</p>}
 
-              {msg.image && (
-                <img src={msg.image} width="120" alt="" />
-              )}
+              <small style={{ fontSize: "10px" }}>{msg.time}</small>
+
+              {msg.image && <img src={msg.image} width="120" alt="" />}
             </div>
           ))}
           <div ref={bottomRef}></div>
@@ -217,11 +239,7 @@ function App() {
         <div className="typing">{typing}</div>
 
         <div className="footer">
-          <input
-            value={message}
-            onChange={handleTyping}
-            placeholder="Type..."
-          />
+          <input value={message} onChange={handleTyping} placeholder="Type..." />
           <input type="file" onChange={handleImage} />
           <button onClick={sendMessage}>Send</button>
         </div>
