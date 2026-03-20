@@ -3,7 +3,7 @@ import io from "socket.io-client";
 import "./App.css";
 
 const API = "https://chat-app-370t.onrender.com";
-const socket = io(API, { transports: ["websocket"] });
+const socket = io(API);
 
 function App() {
   const [user, setUser] = useState(null);
@@ -17,14 +17,14 @@ function App() {
 
   const [message, setMessage] = useState("");
   const [image, setImage] = useState("");
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = [];
 
   const [typing, setTyping] = useState("");
   const [onlineUsers, setOnlineUsers] = useState([]);
 
   const bottomRef = useRef(null);
 
-  // 🔐 LOGIN
+  // LOGIN
   const login = async () => {
     const res = await fetch(`${API}/login`, {
       method: "POST",
@@ -34,14 +34,13 @@ function App() {
 
     const data = await res.json();
     if (data) {
-      setUser({ username: username.toLowerCase() }); // 🔥 fix
-      setRoom("");
+      setUser({ username });
     } else {
       alert("Wrong credentials");
     }
   };
 
-  // 🔐 REGISTER
+  // REGISTER
   const register = async () => {
     await fetch(`${API}/register`, {
       method: "POST",
@@ -49,88 +48,46 @@ function App() {
       body: JSON.stringify({ username, password }),
     });
 
-    alert("Registered! Login karo");
+    alert("Registered!");
     setIsRegister(false);
   };
 
-  // 🔥 JOIN ROOM
+  // JOIN ROOM
   const joinRoom = () => {
-    if (room.trim() !== "") {
-      const cleanName = username.toLowerCase(); // 🔥 fix
-      socket.emit("join_room", { room, username: cleanName });
-      setShowChat(true);
-    } else {
-      alert("Enter room id");
-    }
+    socket.emit("join_room", { room, username });
+    setShowChat(true);
   };
 
-  // 📸 IMAGE
-  const handleImage = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => setImage(reader.result);
-    reader.readAsDataURL(file);
-  };
-
-  // 💬 SEND
+  // SEND MESSAGE
   const sendMessage = () => {
-    if (message.trim() !== "" || image !== "") {
-      const data = {
-        room,
-        author: username.toLowerCase(), // 🔥 fix
-        message,
-        image,
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
+    const data = {
+      room,
+      author: username,
+      message,
+      image,
+      time: new Date().toLocaleTimeString(),
+    };
 
-      socket.emit("send_message", data);
-
-      setMessage("");
-      setImage("");
-    }
+    socket.emit("send_message", data);
+    setMessage("");
   };
 
-  // ✅ LOGOUT (FIX)
+  // 🔥 CLEAR CHAT FIXED
+  const clearChat = () => {
+    socket.emit("clear_chat", { room });
+  };
+
+  // LOGOUT
   const logout = () => {
-    socket.emit("leave_room"); // 🔥 no username
-    socket.disconnect();       // 🔥 important
+    socket.emit("leave_room", username);
     setUser(null);
-    setRoom("");
     setShowChat(false);
   };
 
-  // ✅ CLEAR CHAT (FIX)
-  const clearChat = () => {
-    socket.emit("clear_chat", room); // 🔥 server delete
-  };
-
-  // ⌨️ TYPING
-  const handleTyping = (e) => {
-    setMessage(e.target.value);
-
-    socket.emit("typing", { room, username });
-
-    setTimeout(() => {
-      socket.emit("stop_typing", { room });
-    }, 1000);
-  };
-
-  // 🔁 SOCKET LISTEN
   useEffect(() => {
     socket.on("receive_message", (data) => {
       setMessages((list) => [...list, data]);
     });
-
-    socket.on("typing", (data) => {
-      setTyping(data.username + " typing...");
-    });
-
-    socket.on("stop_typing", () => setTyping(""));
 
     socket.on("online_users", setOnlineUsers);
 
@@ -139,105 +96,74 @@ function App() {
     });
 
     return () => {
-      socket.off("receive_message");
-      socket.off("typing");
-      socket.off("stop_typing");
-      socket.off("online_users");
-      socket.off("load_messages");
+      socket.off();
     };
   }, []);
 
-  // 🔽 AUTO SCROLL
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // 🔐 LOGIN UI
   if (!user) {
     return (
       <div className="auth">
         <div className="box">
           <h2>{isRegister ? "Register" : "Login"}</h2>
 
-          <input placeholder="Username" onChange={(e) => setUsername(e.target.value)} />
-          <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
+          <input onChange={(e) => setUsername(e.target.value)} placeholder="Username" />
+          <input type="password" onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
 
           <button onClick={isRegister ? register : login}>
             {isRegister ? "Register" : "Login"}
           </button>
 
           <p onClick={() => setIsRegister(!isRegister)}>
-            {isRegister ? "Login here" : "Create account"}
+            Switch
           </p>
         </div>
       </div>
     );
   }
 
-  // 🟡 JOIN ROOM UI
   if (!showChat) {
     return (
       <div className="auth">
         <div className="box">
           <h2>Join Room</h2>
-
-          <input
-            placeholder="Enter Room"
-            value={room}
-            onChange={(e) => setRoom(e.target.value)}
-          />
-
+          <input onChange={(e) => setRoom(e.target.value)} placeholder="Room" />
           <button onClick={joinRoom}>Join</button>
         </div>
       </div>
     );
   }
 
-  // 💬 CHAT UI
   return (
     <div className="container">
-
       <div className="sidebar">
         <h3>Online</h3>
-
-        {[...new Map(onlineUsers.map(u => [u.username, u])).values()].map((u, i) => (
-          <div key={i} className="userItem">
-            🟢 {u.username}
-          </div>
+        {onlineUsers.map((u, i) => (
+          <div key={i}>🟢 {u.username}</div>
         ))}
       </div>
 
       <div className="chat">
         <div className="header">
           Room: {room} | You: {username}
-
           <button onClick={logout}>Logout</button>
           <button onClick={clearChat}>Clear</button>
         </div>
 
         <div className="body">
           {messages.map((msg, i) => (
-            <div key={i} className={msg.author === username.toLowerCase() ? "own" : "msg"}>
+            <div key={i}>
               <b>{msg.author}</b>
-
-              {msg.message && <p>{msg.message}</p>}
-              <small style={{ fontSize: "10px" }}>{msg.time}</small>
-
-              {msg.image && <img src={msg.image} width="120" alt="" />}
+              <p>{msg.message}</p>
             </div>
           ))}
           <div ref={bottomRef}></div>
         </div>
 
-        <div className="typing">{typing}</div>
-
         <div className="footer">
-          <input value={message} onChange={handleTyping} placeholder="Type..." />
-          <input type="file" onChange={handleImage} />
+          <input value={message} onChange={(e) => setMessage(e.target.value)} />
           <button onClick={sendMessage}>Send</button>
         </div>
       </div>
-
     </div>
   );
 }
