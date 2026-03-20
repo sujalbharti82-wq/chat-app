@@ -3,11 +3,7 @@ import io from "socket.io-client";
 import "./App.css";
 
 const API = "https://chat-app-370t.onrender.com";
-
-// ✅ SOCKET FIX
-const socket = io(API, {
-  transports: ["websocket"],
-});
+const socket = io(API, { transports: ["websocket"] });
 
 function App() {
   const [user, setUser] = useState(null);
@@ -38,7 +34,7 @@ function App() {
 
     const data = await res.json();
     if (data) {
-      setUser({ username });
+      setUser({ username: username.toLowerCase() }); // 🔥 fix
       setRoom("");
     } else {
       alert("Wrong credentials");
@@ -60,7 +56,8 @@ function App() {
   // 🔥 JOIN ROOM
   const joinRoom = () => {
     if (room.trim() !== "") {
-      socket.emit("join_room", { room, username });
+      const cleanName = username.toLowerCase(); // 🔥 fix
+      socket.emit("join_room", { room, username: cleanName });
       setShowChat(true);
     } else {
       alert("Enter room id");
@@ -82,7 +79,7 @@ function App() {
     if (message.trim() !== "" || image !== "") {
       const data = {
         room,
-        author: username,
+        author: username.toLowerCase(), // 🔥 fix
         message,
         image,
         time: new Date().toLocaleTimeString([], {
@@ -98,18 +95,18 @@ function App() {
     }
   };
 
-  // ✅ 🔥 LOGOUT FIX (MAIN)
+  // ✅ LOGOUT (FIX)
   const logout = () => {
-    socket.emit("leave_room");   // ✅ without username
-    socket.disconnect();         // 🔥 must
+    socket.emit("leave_room"); // 🔥 no username
+    socket.disconnect();       // 🔥 important
     setUser(null);
     setRoom("");
     setShowChat(false);
   };
 
-  // ✅ 🔥 CLEAR CHAT FIX
+  // ✅ CLEAR CHAT (FIX)
   const clearChat = () => {
-    socket.emit("clear_chat", room);
+    socket.emit("clear_chat", room); // 🔥 server delete
   };
 
   // ⌨️ TYPING
@@ -200,7 +197,6 @@ function App() {
   return (
     <div className="container">
 
-      {/* SIDEBAR */}
       <div className="sidebar">
         <h3>Online</h3>
 
@@ -209,10 +205,8 @@ function App() {
             🟢 {u.username}
           </div>
         ))}
-
       </div>
 
-      {/* CHAT */}
       <div className="chat">
         <div className="header">
           Room: {room} | You: {username}
@@ -223,11 +217,10 @@ function App() {
 
         <div className="body">
           {messages.map((msg, i) => (
-            <div key={i} className={msg.author === username ? "own" : "msg"}>
+            <div key={i} className={msg.author === username.toLowerCase() ? "own" : "msg"}>
               <b>{msg.author}</b>
 
               {msg.message && <p>{msg.message}</p>}
-
               <small style={{ fontSize: "10px" }}>{msg.time}</small>
 
               {msg.image && <img src={msg.image} width="120" alt="" />}
